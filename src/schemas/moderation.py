@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 
 
-# ── Входящие события от B2B ──────────────────────────────────────────────────
+# --- Incoming events from B2B (internal format, used directly in tests) ---
 
 class B2BProductEventIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -12,7 +12,18 @@ class B2BProductEventIn(BaseModel):
     date: str
 
 
-# ── Approve ──────────────────────────────────────────────────────────────────
+# --- Incoming events from B2B (OpenAPI format for /b2b/events endpoint) ---
+
+class IncomingB2BEventHTTP(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    event_type: str        # PRODUCT_CREATED | PRODUCT_EDITED | PRODUCT_DELETED
+    idempotency_key: str
+    occurred_at: str
+    payload: dict
+
+
+# --- Approve ---
 
 class ApproveIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -20,7 +31,7 @@ class ApproveIn(BaseModel):
     moderator_comment: str | None = None
 
 
-# ── Decline (soft + hard block) ───────────────────────────────────────────────
+# --- Decline (soft + hard block) ---
 
 class FieldReportIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -33,6 +44,6 @@ class FieldReportIn(BaseModel):
 class DeclineIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    blocking_reason_id: str
+    blocking_reason_ids: list[str]   # minItems: 1 - use first
     moderator_comment: str
     field_reports: list[FieldReportIn] = []

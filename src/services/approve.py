@@ -9,8 +9,8 @@ from src.schemas.moderation import ApproveIn
 from src.services.b2b_client import send_moderation_decision
 
 
-def approve_product(db: Session, product_id: str, data: ApproveIn, moderator_id: str) -> dict:
-    q = db.query(ProductModeration).filter_by(product_id=product_id)
+def approve_product(db: Session, ticket_id: str, data: ApproveIn, moderator_id: str) -> dict:
+    q = db.query(ProductModeration).filter_by(id=ticket_id)
     if db.bind.dialect.name != "sqlite":
         q = q.with_for_update()
     card = q.first()
@@ -37,9 +37,10 @@ def approve_product(db: Session, product_id: str, data: ApproveIn, moderator_id:
 
     payload = {
         "idempotency_key": card.id,
-        "product_id": product_id,
-        "status": "MODERATED",
+        "product_id": card.product_id,
+        "event_type": "MODERATED",
+        "occurred_at": datetime.now(timezone.utc).isoformat(),
     }
-    send_moderation_decision(product_id, payload)
+    send_moderation_decision(card.product_id, payload)
 
-    return {"status": "ok", "product_id": product_id}
+    return {"status": "ok", "product_id": card.product_id}

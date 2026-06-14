@@ -44,12 +44,12 @@ def fetch_product_json(product_id: str) -> dict | None:
 
 
 def send_moderation_decision(product_id: str, payload: dict) -> bool:
-    """POST /api/v1/events/moderation в B2B. Возвращает True при успехе."""
+    """POST /api/v1/moderation/events в B2B. Возвращает True при успехе."""
     if not config.B2B_URL or not config.MOD_TO_B2B_KEY:
         return True  # в тестах считаем успехом
     try:
         resp = httpx.post(
-            f"{config.B2B_URL}/api/v1/events/moderation",
+            f"{config.B2B_URL}/api/v1/moderation/events",
             json=payload,
             headers=_headers(),
             timeout=5.0,
