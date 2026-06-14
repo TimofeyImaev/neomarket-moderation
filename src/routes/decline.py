@@ -1,4 +1,4 @@
-"""POST /api/v1/products/{product_id}/decline — MOD-04/05."""
+"""POST /api/v1/tickets/{ticket_id}/block — MOD-05."""
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -10,11 +10,11 @@ from src.services.decline import decline_product
 router = APIRouter()
 
 
-@router.post("/products/{product_id}/decline", status_code=200)
+@router.post("/tickets/{ticket_id}/block", status_code=200)
 def decline(
-    product_id: str,
+    ticket_id: str,
     body: DeclineIn,
     db: Session = Depends(get_db),
     moderator_id: str = Depends(get_current_moderator_id),
 ):
-    return decline_product(db, product_id, body, moderator_id)
+    return decline_product(db, ticket_id, body, moderator_id)
