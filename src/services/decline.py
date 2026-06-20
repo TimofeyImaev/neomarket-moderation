@@ -21,11 +21,12 @@ def decline_product(db: Session, ticket_id: str, data: DeclineIn, moderator_id: 
     if card.moderator_id is not None and card.moderator_id != moderator_id:
         raise ApiError(403, "FORBIDDEN", "This card is assigned to another moderator")
 
-    # HARD_BLOCKED is terminal → 403; other closed statuses → 409
+    # HARD_BLOCKED is terminal → 403
     if card.status == "HARD_BLOCKED":
         raise ApiError(403, "FORBIDDEN", "Cannot modify a HARD_BLOCKED card")
-    if card.status in ("MODERATED", "BLOCKED"):
-        raise ApiError(409, "INVALID_STATUS", f"Cannot decline card in status {card.status}")
+    # Only IN_REVIEW tickets may be blocked — all other statuses (PENDING, MODERATED, BLOCKED…) → 409
+    if card.status != "IN_REVIEW":
+        raise ApiError(409, "INVALID_STATUS", f"Cannot block card in status {card.status!r}; must be IN_REVIEW")
 
     # Take the first blocking reason (spec allows multiple, we use the first)
     reason_id = data.blocking_reason_ids[0]
@@ -38,7 +39,7 @@ def decline_product(db: Session, ticket_id: str, data: DeclineIn, moderator_id: 
 
     card.status = new_status
     card.moderator_id = moderator_id
-    card.moderator_comment = data.moderator_comment
+    card.moderator_comment = data.comment   # store in DB column moderator_comment
     card.blocking_reason_id = reason_id
     card.date_moderation = datetime.now(timezone.utc)
     card.date_updated = datetime.now(timezone.utc)
@@ -50,9 +51,9 @@ def decline_product(db: Session, ticket_id: str, data: DeclineIn, moderator_id: 
     for fr_in in data.field_reports:
         db.add(ProductModerationFieldReport(
             product_moderation_id=card.id,
-            field_name=fr_in.field_name,
+            field_name=fr_in.field_path,   # map API field_path → DB column field_name
             sku_id=fr_in.sku_id,
-            comment=fr_in.comment,
+            comment=fr_in.message,         # map API message → DB column comment
         ))
 
     db.commit()
@@ -66,10 +67,19 @@ def decline_product(db: Session, ticket_id: str, data: DeclineIn, moderator_id: 
         "hard_block": is_hard,
         "blocking_reason_id": reason.id,
         "field_reports": [
-            {"field_name": fr.field_name, "sku_id": fr.sku_id, "comment": fr.comment}
+            {"field_path": fr.field_name, "sku_id": fr.sku_id, "message": fr.comment}
             for fr in card.field_reports
         ],
     }
     send_moderation_decision(card.product_id, payload)
 
-    return {"status": "ok", "product_id": card.product_id}
+    # Return TicketResponse per moderation/openapi.yaml:370-371
+    return {
+        "id": card.id,
+        "product_id": card.product_id,
+        "seller_id": card.seller_id,
+        "kind": "moderation",
+        "status": card.status,
+        "queue_priority": card.queue_priority,
+        "created_at": card.date_created.isoformat() if card.date_created else None,
+    }

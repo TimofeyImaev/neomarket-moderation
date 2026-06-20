@@ -28,7 +28,7 @@ class IncomingB2BEventHTTP(BaseModel):
 class ApproveIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    moderator_comment: str | None = None
+    comment: str | None = None   # was: moderator_comment — renamed per moderation/openapi.yaml:334-336
 
 
 # --- Decline (soft + hard block) ---
@@ -36,14 +36,14 @@ class ApproveIn(BaseModel):
 class FieldReportIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    field_name: str
+    field_path: str          # was: field_name — renamed per moderation/openapi.yaml:756
     sku_id: str | None = None
-    comment: str
+    message: str             # was: comment — renamed per moderation/openapi.yaml:763
 
 
 class DeclineIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     blocking_reason_ids: list[str]   # minItems: 1 - use first
-    moderator_comment: str
+    comment: str                     # was: moderator_comment — renamed per moderation/openapi.yaml:779
     field_reports: list[FieldReportIn] = []
