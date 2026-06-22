@@ -45,5 +45,5 @@ class DeclineIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     blocking_reason_ids: list[str]   # minItems: 1 - use first
-    comment: str                     # was: moderator_comment — renamed per moderation/openapi.yaml:779
+    comment: str | None = None       # optional per moderation/openapi.yaml:774
     field_reports: list[FieldReportIn] = []

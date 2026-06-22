@@ -67,7 +67,7 @@ def decline_product(db: Session, ticket_id: str, data: DeclineIn, moderator_id: 
         "hard_block": is_hard,
         "blocking_reason_id": reason.id,
         "field_reports": [
-            {"field_path": fr.field_name, "sku_id": fr.sku_id, "message": fr.comment}
+            {"field_name": fr.field_name, "sku_id": fr.sku_id, "comment": fr.comment}
             for fr in card.field_reports
         ],
     }
@@ -78,7 +78,7 @@ def decline_product(db: Session, ticket_id: str, data: DeclineIn, moderator_id: 
         "id": card.id,
         "product_id": card.product_id,
         "seller_id": card.seller_id,
-        "kind": "moderation",
+        "kind": "CREATE" if card.json_before is None else "EDIT",
         "status": card.status,
         "queue_priority": card.queue_priority,
         "created_at": card.date_created.isoformat() if card.date_created else None,

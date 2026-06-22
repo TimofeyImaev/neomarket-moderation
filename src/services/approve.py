@@ -53,7 +53,7 @@ def approve_product(db: Session, ticket_id: str, data: ApproveIn, moderator_id: 
         "id": card.id,
         "product_id": card.product_id,
         "seller_id": card.seller_id,
-        "kind": "moderation",
+        "kind": "CREATE" if card.json_before is None else "EDIT",
         "status": card.status,
         "queue_priority": card.queue_priority,
         "created_at": card.date_created.isoformat() if card.date_created else None,
