@@ -18,7 +18,7 @@ def _decline(client, ticket_id, headers, reason_id, field_reports=None, comment=
         f"/api/v1/tickets/{ticket_id}/block",
         json={
             "blocking_reason_ids": [reason_id],
-            "moderator_comment": comment,
+            "comment": comment,              # was moderator_comment — renamed per openapi.yaml:779
             "field_reports": field_reports or [],
         },
         headers=headers,
@@ -28,6 +28,8 @@ def _decline(client, ticket_id, headers, reason_id, field_reports=None, comment=
 @patch("src.services.decline.send_moderation_decision", return_value=True)
 def test_hard_block_transitions_to_terminal_and_emits_event(mock_send, client, db, auth_headers, seeded_reasons):
     card = make_pending_card(db)
+    card.status = "IN_REVIEW"  # must be IN_REVIEW before /block
+    db.commit()
 
     r = _decline(client, card.id, auth_headers, HARD_REASON_ID)
 
@@ -41,6 +43,8 @@ def test_hard_block_transitions_to_terminal_and_emits_event(mock_send, client, d
 @patch("src.services.decline.send_moderation_decision", return_value=True)
 def test_hard_block_event_carries_hard_block_true(mock_send, client, db, auth_headers, seeded_reasons):
     card = make_pending_card(db)
+    card.status = "IN_REVIEW"
+    db.commit()
 
     _decline(client, card.id, auth_headers, HARD_REASON_ID)
 
@@ -52,6 +56,8 @@ def test_hard_block_event_carries_hard_block_true(mock_send, client, db, auth_he
 @patch("src.services.decline.send_moderation_decision", return_value=True)
 def test_soft_block_event_carries_hard_block_false(mock_send, client, db, auth_headers, seeded_reasons):
     card = make_pending_card(db)
+    card.status = "IN_REVIEW"
+    db.commit()
 
     _decline(client, card.id, auth_headers, SOFT_REASON_ID)
 
@@ -67,6 +73,23 @@ def test_any_modify_on_hard_blocked_returns_403(mock_send, client, db, auth_head
     db.commit()
 
     r = _decline(client, card.id, auth_headers, HARD_REASON_ID)
+
+    assert r.status_code == 403
+    mock_send.assert_not_called()
+
+
+@patch("src.services.approve.send_moderation_decision", return_value=True)
+def test_approve_on_hard_blocked_returns_403(mock_send, client, db, auth_headers, seeded_reasons):
+    """Cannot approve a card that is already HARD_BLOCKED — must return 403."""
+    card = make_pending_card(db)
+    card.status = "HARD_BLOCKED"
+    db.commit()
+
+    r = client.post(
+        f"/api/v1/tickets/{card.id}/approve",
+        json={"moderator_comment": None},
+        headers=auth_headers,
+    )
 
     assert r.status_code == 403
     mock_send.assert_not_called()

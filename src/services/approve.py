@@ -21,26 +21,40 @@ def approve_product(db: Session, ticket_id: str, data: ApproveIn, moderator_id: 
     if card.moderator_id is not None and card.moderator_id != moderator_id:
         raise ApiError(403, "FORBIDDEN", "This card is assigned to another moderator")
 
-    if card.status in ("MODERATED", "BLOCKED", "HARD_BLOCKED"):
+    # HARD_BLOCKED is terminal → 403 per MOD-05 DoD (any modify on HARD_BLOCKED → 403)
+    if card.status == "HARD_BLOCKED":
+        raise ApiError(403, "FORBIDDEN", "Cannot modify a HARD_BLOCKED card")
+    # Only IN_REVIEW tickets may be approved — all other statuses → 409
+    if card.status != "IN_REVIEW":
         raise ApiError(409, "INVALID_STATUS", f"Cannot approve card in status {card.status}")
 
     skus = card.json_after.get("skus", [])
     if not skus:
         raise ApiError(409, "NO_SKU", "Cannot approve product without SKUs")
 
-    card.status = "MODERATED"
+    card.status = "APPROVED"          # TicketStatus enum: APPROVED per moderation/openapi.yaml:651-653
     card.moderator_id = moderator_id
-    card.moderator_comment = data.moderator_comment
+    card.moderator_comment = data.comment   # store in DB column; schema field renamed to comment
     card.date_moderation = datetime.now(timezone.utc)
     card.date_updated = datetime.now(timezone.utc)
     db.commit()
+    db.refresh(card)
 
     payload = {
         "idempotency_key": card.id,
         "product_id": card.product_id,
-        "event_type": "MODERATED",
+        "event_type": "MODERATED",    # B2B event type stays MODERATED
         "occurred_at": datetime.now(timezone.utc).isoformat(),
     }
     send_moderation_decision(card.product_id, payload)
 
-    return {"status": "ok", "product_id": card.product_id}
+    # Return TicketResponse per moderation/openapi.yaml:343
+    return {
+        "id": card.id,
+        "product_id": card.product_id,
+        "seller_id": card.seller_id,
+        "kind": "moderation",
+        "status": card.status,
+        "queue_priority": card.queue_priority,
+        "created_at": card.date_created.isoformat() if card.date_created else None,
+    }
