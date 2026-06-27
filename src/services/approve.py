@@ -18,13 +18,13 @@ def approve_product(db: Session, ticket_id: str, data: ApproveIn, moderator_id: 
     if card is None:
         raise ApiError(404, "NOT_FOUND", "Moderation card not found")
 
+    # Spec: approve declares only 200/409 (moderation/openapi.yaml:343-349).
+    # A foreign ticket is "Чужой тикет" → 409, NOT 403.
     if card.moderator_id is not None and card.moderator_id != moderator_id:
-        raise ApiError(403, "FORBIDDEN", "This card is assigned to another moderator")
+        raise ApiError(409, "FOREIGN_TICKET", "This card is assigned to another moderator")
 
-    # HARD_BLOCKED is terminal → 403 per MOD-05 DoD (any modify on HARD_BLOCKED → 403)
-    if card.status == "HARD_BLOCKED":
-        raise ApiError(403, "FORBIDDEN", "Cannot modify a HARD_BLOCKED card")
-    # Only IN_REVIEW tickets may be approved — all other statuses → 409
+    # Only IN_REVIEW tickets may be approved — any other status, including the
+    # terminal HARD_BLOCKED, is "Неверный статус" → 409 (never 403).
     if card.status != "IN_REVIEW":
         raise ApiError(409, "INVALID_STATUS", f"Cannot approve card in status {card.status}")
 

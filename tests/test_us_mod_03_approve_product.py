@@ -45,12 +45,13 @@ def test_approve_transitions_to_moderated_and_emits_event(mock_send, client, db,
 
 
 @patch("src.services.approve.send_moderation_decision", return_value=True)
-def test_approve_others_card_returns_403(mock_send, client, db, auth_headers, other_auth_headers, seeded_reasons):
+def test_approve_others_card_returns_409(mock_send, client, db, auth_headers, other_auth_headers, seeded_reasons):
+    # Spec: approve declares only 200/409; a foreign ticket is 409, not 403.
     card = _make_in_review_card(db, moderator_id=ANOTHER_MODERATOR_ID)
 
     r = _approve(client, card.id, auth_headers)
 
-    assert r.status_code == 403
+    assert r.status_code == 409
     mock_send.assert_not_called()
 
 
