@@ -18,13 +18,13 @@ def decline_product(db: Session, ticket_id: str, data: DeclineIn, moderator_id: 
     if card is None:
         raise ApiError(404, "NOT_FOUND", "Moderation card not found")
 
+    # Spec: block declares only 200/400/409 (moderation/openapi.yaml:350-376).
+    # A foreign ticket is "Чужой тикет" → 409, NOT 403.
     if card.moderator_id is not None and card.moderator_id != moderator_id:
-        raise ApiError(403, "FORBIDDEN", "This card is assigned to another moderator")
+        raise ApiError(409, "FOREIGN_TICKET", "This card is assigned to another moderator")
 
-    # HARD_BLOCKED is terminal → 403
-    if card.status == "HARD_BLOCKED":
-        raise ApiError(403, "FORBIDDEN", "Cannot modify a HARD_BLOCKED card")
-    # Only IN_REVIEW tickets may be blocked — all other statuses (PENDING, MODERATED, BLOCKED…) → 409
+    # Only IN_REVIEW tickets may be blocked — any other status (PENDING, MODERATED,
+    # BLOCKED, terminal HARD_BLOCKED…) is "Неверный статус" → 409 (never 403).
     if card.status != "IN_REVIEW":
         raise ApiError(409, "INVALID_STATUS", f"Cannot block card in status {card.status!r}; must be IN_REVIEW")
 

@@ -66,32 +66,32 @@ def test_soft_block_event_carries_hard_block_false(mock_send, client, db, auth_h
 
 
 @patch("src.services.decline.send_moderation_decision", return_value=True)
-def test_any_modify_on_hard_blocked_returns_403(mock_send, client, db, auth_headers, seeded_reasons):
-    """Cannot decline a card that is already HARD_BLOCKED."""
+def test_any_modify_on_hard_blocked_returns_409(mock_send, client, db, auth_headers, seeded_reasons):
+    """A terminal HARD_BLOCKED card is not IN_REVIEW → block returns 409 (spec: 200/400/409, no 403)."""
     card = make_pending_card(db)
     card.status = "HARD_BLOCKED"
     db.commit()
 
     r = _decline(client, card.id, auth_headers, HARD_REASON_ID)
 
-    assert r.status_code == 403
+    assert r.status_code == 409
     mock_send.assert_not_called()
 
 
 @patch("src.services.approve.send_moderation_decision", return_value=True)
-def test_approve_on_hard_blocked_returns_403(mock_send, client, db, auth_headers, seeded_reasons):
-    """Cannot approve a card that is already HARD_BLOCKED — must return 403."""
+def test_approve_on_hard_blocked_returns_409(mock_send, client, db, auth_headers, seeded_reasons):
+    """A terminal HARD_BLOCKED card is not IN_REVIEW → approve returns 409 (spec: 200/409, no 403)."""
     card = make_pending_card(db)
     card.status = "HARD_BLOCKED"
     db.commit()
 
     r = client.post(
         f"/api/v1/tickets/{card.id}/approve",
-        json={"moderator_comment": None},
+        json={"comment": None},
         headers=auth_headers,
     )
 
-    assert r.status_code == 403
+    assert r.status_code == 409
     mock_send.assert_not_called()
 
 
@@ -134,10 +134,11 @@ def test_deleted_event_removes_hard_blocked(db, seeded_reasons):
 
 
 @patch("src.services.decline.send_moderation_decision", return_value=True)
-def test_decline_others_card_returns_403(mock_send, client, db, auth_headers, other_auth_headers, seeded_reasons):
+def test_decline_others_card_returns_409(mock_send, client, db, auth_headers, other_auth_headers, seeded_reasons):
+    # Spec: block declares only 200/400/409; a foreign ticket is 409, not 403.
     card = make_pending_card(db, moderator_id=ANOTHER_MODERATOR_ID)
 
     r = _decline(client, card.id, auth_headers, SOFT_REASON_ID)
 
-    assert r.status_code == 403
+    assert r.status_code == 409
     mock_send.assert_not_called()
